@@ -1,0 +1,129 @@
+[project]
+name = "ugc-analytics"
+version = "0.1.0"
+description = "Сервисы сбора и переноса пользовательских действий"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9",
+    "aiokafka>=0.8",
+    "clickhouse-connect>=0.7",
+    "cryptography>=42",
+    "fastapi>=0.115",
+    "httpx>=0.27",
+    "opentelemetry-api>=1.27",
+    "opentelemetry-exporter-otlp-proto-http>=1.27",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-sdk>=1.27",
+    "psutil>=5.9",
+    "pydantic-settings>=2.4",
+    "PyJWT>=2.9",
+    "uvicorn>=0.30",
+]
+
+[tool.ruff]
+line-length = 79
+preview = false
+fix = true
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "C",
+    "COM",
+    "D",
+    "E",
+    "W",
+    "F",
+    "I",
+    "Q",
+    "B",
+    "A",
+    "T10",
+    "UP",
+    "N",
+    "SIM",
+    "RUF100",
+]
+
+ignore = [
+    "D100",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D205",
+    "COM812",
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["D102", "D103", "D100"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+ignore-decorators = ["property"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+force-single-line = false
+lines-after-imports = 2
+combine-as-imports = true
+known-first-party = ["api", "etl"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+avoid-escape = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+explicit_package_bases = true
+namespace_packages = true
+files = [
+    "services/api/src",
+    "services/etl/src",
+    "services/api/tests",
+    "services/etl/tests",
+]
+mypy_path = ["services/api/src", "services/etl/src"]
+exclude = [
+    "tasks/",
+    "scripts/",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["services/api/tests", "services/etl/tests"]
+addopts = "-q --import-mode=importlib"
+pythonpath = ["services/api/src", "services/etl/src"]
