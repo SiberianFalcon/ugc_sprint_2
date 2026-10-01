@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ugc.application.ports.bookmark_repository import BookmarkRepository
+from ugc.application.ports.like_repository import LikeRepository
+from ugc.application.ports.review_repository import ReviewRepository
 from ugc.infrastructure.clock import SystemClock
 from ugc.infrastructure.mongo.client import MongoConnection
 from ugc.infrastructure.mongo.review_repository import (
@@ -12,6 +15,7 @@ from ugc.infrastructure.mongo.review_repository import (
 from ugc.infrastructure.mongo.user_action_repository import (
     MongoUserActionRepository,
 )
+from ugc.infrastructure.security.token_verifier import JwtTokenVerifier
 from ugc.infrastructure.settings import AppSettings
 
 
@@ -22,9 +26,10 @@ class InfrastructureDependencyContainer:
     settings: AppSettings
     clock: SystemClock
     connection: MongoConnection
-    like_repository: MongoUserActionRepository
-    bookmark_repository: MongoUserActionRepository
-    review_repository: MongoReviewRepository
+    like_repository: LikeRepository
+    bookmark_repository: BookmarkRepository
+    review_repository: ReviewRepository
+    token_verifier: JwtTokenVerifier
 
     @classmethod
     async def assemble(
@@ -46,4 +51,5 @@ class InfrastructureDependencyContainer:
             review_repository=MongoReviewRepository(
                 connection.collection(settings.mongo.review_collection)
             ),
+            token_verifier=JwtTokenVerifier(settings.auth),
         )

@@ -11,3 +11,7 @@ class ReviewNotFoundError(ApplicationError):
 
 class ReviewAccessDeniedError(ApplicationError):
     """Пользователь не является автором рецензии."""
+
+
+class InvalidTokenError(ApplicationError):
+    """Токен доступа недействителен."""
