@@ -7,12 +7,14 @@ from etl.application.transfer.services import EventTransferService
 from etl.composition import ApplicationDependencyContainer
 from etl.infrastructure.container import InfrastructureDependencyContainer
 from etl.infrastructure.logging import configure_logging
+from etl.infrastructure.sentry import init_sentry
 from etl.infrastructure.settings import AppSettings
 
 
 async def run() -> None:
     """Запускает фоновый цикл переноса событий."""
     settings = AppSettings.load()
+    init_sentry(settings.sentry)
     infrastructure = await InfrastructureDependencyContainer.assemble(settings)
     application = await ApplicationDependencyContainer.assemble(infrastructure)
     service = application.transfer_service

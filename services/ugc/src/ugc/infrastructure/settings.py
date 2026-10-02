@@ -72,6 +72,28 @@ class AuthSettings(BaseSettings):
         return value
 
 
+class SentrySettings(BaseSettings):
+    """Параметры подключения к Sentry."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="APP_SENTRY_", env_file=".env", extra="ignore"
+    )
+
+    dsn: str = ""
+    enabled: bool = False
+    environment: str = "development"
+    traces_sample_rate: float = 0.0
+
+    @field_validator("traces_sample_rate")
+    @classmethod
+    def _validate_sample_rate(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(
+                "traces_sample_rate должен быть в диапазоне от 0 до 1"
+            )
+        return value
+
+
 @dataclass(frozen=True, slots=True)
 class AppSettings:
     """Полный набор настроек приложения."""
@@ -79,6 +101,7 @@ class AppSettings:
     mongo: MongoSettings
     presentation: PresentationSettings
     auth: AuthSettings
+    sentry: SentrySettings
 
     @classmethod
     def load(cls) -> AppSettings:
@@ -87,4 +110,5 @@ class AppSettings:
             mongo=MongoSettings(),
             presentation=PresentationSettings(),
             auth=AuthSettings(),
+            sentry=SentrySettings(),
         )

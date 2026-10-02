@@ -6,6 +6,7 @@ import uvicorn
 
 from api.infrastructure.container import InfrastructureDependencyContainer
 from api.infrastructure.logging import configure_logging
+from api.infrastructure.sentry import init_sentry
 from api.infrastructure.settings import AppSettings
 from api.presentation.api.application import build_application
 from api.presentation.container import ApplicationDependencyContainer
@@ -23,6 +24,7 @@ def main() -> None:
     """Запускает HTTP-сервер сервиса."""
     configure_logging("ugc-api")
     settings, container = asyncio.run(assemble())
+    init_sentry(settings.sentry)
     application = build_application(settings, container)
     uvicorn.run(
         application,
