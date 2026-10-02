@@ -63,15 +63,20 @@ PostgreSQL — `shared_buffers=1GB`.
 
 | Операция | Хранилище | p50, мс | p95, мс | p99, мс | mean, мс |
 | --- | --- | --- | --- | --- | --- |
-| read_point | mongo | — | — | — | — |
-| read_point | postgres | — | — | — | — |
-| read_count | mongo | — | — | — | — |
-| read_count | postgres | — | — | — | — |
-| read_list | mongo | — | — | — | — |
-| read_list | postgres | — | — | — | — |
-| write_upsert | mongo | — | — | — | — |
-| write_upsert | postgres | — | — | — | — |
-| delete | mongo | — | — | — | — |
-| delete | postgres | — | — | — | — |
+| read_point | mongo | 0.769 | 1.263 | 1.578 | 0.803 |
+| read_point | postgres | 0.400 | 0.767 | 0.857 | 0.456 |
+| read_count | mongo | 0.537 | 0.808 | 0.883 | 0.558 |
+| read_count | postgres | 1.016 | 21.296 | 24.443 | 6.551 |
+| read_list | mongo | 0.467 | 0.866 | 1.858 | 0.533 |
+| read_list | postgres | 0.227 | 0.514 | 1.722 | 0.289 |
+| write_upsert | mongo | 1.046 | 1.601 | 1.831 | 1.074 |
+| write_upsert | postgres | 1.300 | 2.173 | 3.065 | 1.440 |
+| delete | mongo | 1.258 | 1.784 | 2.084 | 1.269 |
+| delete | postgres | 1.070 | 1.724 | 2.364 | 1.168 |
+
+Обе базы укладываются в требование чтения < 200 мс. На точечном чтении
+PostgreSQL немного быстрее, но на подсчёте лайков фильма MongoDB
+существенно стабильнее (p95 0.8 мс против 21.3 мс у PostgreSQL). С учётом
+гибкой схемы рецензий и идемпотентных upsert выбор сделан в пользу MongoDB.
 
 Машиночитаемые результаты сохраняются в `research/storage/results/latest.json`.

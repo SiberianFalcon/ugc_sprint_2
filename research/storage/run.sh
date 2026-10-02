@@ -21,7 +21,7 @@ wait_healthy() {
   local svc="$1" tries="${2:-90}" cid st
   for i in $(seq 1 "$tries"); do
     cid=$($COMPOSE ps -q "$svc" 2>/dev/null)
-    st=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null)
+    st=$($DOCKER inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null)
     if [ "$st" = "healthy" ]; then
       echo "$svc healthy (~$((i*2))s)"
       return 0

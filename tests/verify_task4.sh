@@ -65,10 +65,11 @@ echo
 sleep 2
 
 echo "############ CONSUME FROM KAFKA TOPIC 'events' ############"
-timeout 25 docker compose exec -T kafka \
+timeout -k 5 30 docker compose exec -T kafka \
   /opt/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic events --from-beginning --property print.key=true --max-messages 2
+  --bootstrap-server kafka:9092 \
+  --topic events --from-beginning --property print.key=true \
+  --max-messages 2 --timeout-ms 20000
 echo "consumer exit=$?"
 
 echo "############ API LOGS (tail) ############"
