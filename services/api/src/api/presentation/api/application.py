@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from api.infrastructure.settings import AppSettings
 from api.presentation.api.errors import register_exception_handlers
+from api.presentation.api.middleware import request_id_middleware
 from api.presentation.api.routers import events, health
 from api.presentation.container import ApplicationDependencyContainer
 
@@ -19,6 +20,7 @@ def build_application(
     application = FastAPI(title="UGC Analytics API", lifespan=_lifespan)
     application.state.settings = settings
     application.state.container = container
+    application.middleware("http")(request_id_middleware)
     register_exception_handlers(application)
     application.include_router(health.router)
     application.include_router(events.router)

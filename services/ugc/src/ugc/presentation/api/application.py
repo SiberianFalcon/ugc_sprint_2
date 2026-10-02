@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from ugc.infrastructure.settings import AppSettings
 from ugc.presentation.api.errors import register_exception_handlers
+from ugc.presentation.api.middleware import request_id_middleware
 from ugc.presentation.api.routers import bookmarks, health, likes, reviews
 from ugc.presentation.container import ApplicationDependencyContainer
 
@@ -19,6 +20,7 @@ def build_application(
     application = FastAPI(title="UGC Content API", lifespan=_lifespan)
     application.state.settings = settings
     application.state.container = container
+    application.middleware("http")(request_id_middleware)
     register_exception_handlers(application)
     application.include_router(health.router)
     application.include_router(likes.router)

@@ -1,12 +1,12 @@
 """Точка входа ETL-сервиса."""
 
 import asyncio
-import logging
 import signal
 
 from etl.application.transfer.services import EventTransferService
 from etl.composition import ApplicationDependencyContainer
 from etl.infrastructure.container import InfrastructureDependencyContainer
+from etl.infrastructure.logging import configure_logging
 from etl.infrastructure.settings import AppSettings
 
 
@@ -39,10 +39,7 @@ def _schedule_stop(
 
 def main() -> None:
     """Запускает ETL-сервис."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    configure_logging("ugc-etl", include_http=False)
     asyncio.run(run())
 
 
