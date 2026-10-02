@@ -1,10 +1,15 @@
 # UGC-аналитика
 https://github.com/SiberianFalcon/ugc_sprint_2
 
-Сервис сбора пользовательских действий онлайн-кинотеатра. Состоит из двух
-сервисов: API принимает события кликов, просмотров страниц и кастомные
-события по HTTP, валидирует их и публикует в Kafka; ETL непрерывно переносит
-события из Kafka в аналитическое хранилище ClickHouse.
+Платформа сбора и обработки пользовательских действий онлайн-кинотеатра.
+Первый спринт дал конвейер событий (`api -> Kafka -> etl -> ClickHouse`).
+Второй спринт доводит систему до продакшн-уровня:
+
+- новый сервис пользовательского контента `ugc` (лайки, закладки, рецензии)
+  на MongoDB с подтверждённым нагрузочными тестами выбором хранилища;
+- CI/CD в GitHub Actions (линтеры, проверка типов, тесты на нескольких версиях
+  Python, уведомление в Telegram);
+- централизованное логирование в ELK и мониторинг ошибок в Sentry.
 
 ## Стек
 
@@ -12,120 +17,72 @@ https://github.com/SiberianFalcon/ugc_sprint_2
 - aiokafka — публикация в Kafka (идемпотентный продюсер, `acks=all`) и
   чтение событий;
 - ClickHouse (`clickhouse-connect`), `aiohttp`;
+- MongoDB (`motor`/`pymongo`) — хранение пользовательского контента;
 - psutil — мониторинг потребления памяти ETL;
 - pydantic-settings — конфигурация;
+- ELK — Elasticsearch, Logstash, Kibana, Filebeat;
+- Sentry SDK (`sentry-sdk`) — мониторинг ошибок;
+- Locust — нагрузочное тестирование;
 - uv (зависимости), ruff, mypy, pytest, pre-commit;
 - Архитектура: DDD + Hexagonal + DI-контейнеры.
 
 ## Структура проекта
 
 ```
-ugc_sprint_1/
+ugc_sprint_2/
+├── .github/workflows/            # CI: линтеры, типы, тесты, Telegram
 ├── services/
 │   ├── api/                      # приём событий -> Kafka
-│   │   ├── ddd_plan.md           # доменная модель (DDD)
-│   │   ├── Dockerfile
-│   │   ├── src/api/
-│   │   │   ├── main.py
-│   │   │   ├── presentation/     # HTTP: роутеры, схемы, ошибки, DI
-│   │   │   ├── application/      # сценарий приёма, порты, DTO
-│   │   │   ├── domain/           # Event, Value Objects, правила
-│   │   │   └── infrastructure/   # Kafka-продюсер, настройки, контейнер
-│   │   └── tests/
-│   └── etl/                      # хранилище -> ClickHouse
+│   ├── etl/                      # Kafka -> ClickHouse
+│   └── ugc/                      # CRUD контента -> MongoDB
 │       ├── ddd_plan.md
 │       ├── Dockerfile
-│       ├── src/etl/
+│       ├── src/ugc/
 │       │   ├── main.py
-│       │   ├── composition.py    # сборка сервиса переноса
-│       │   ├── application/      # сценарий переноса, маппер, порты
-│       │   ├── domain/           # Event, Value Objects, правила
-│       │   └── infrastructure/   # Kafka, ClickHouse, мониторинг, настройки
+│       │   ├── presentation/     # HTTP: роутеры, схемы, ошибки, DI
+│       │   ├── application/      # сценарии и порты
+│       │   ├── domain/           # Like, Bookmark, Review, Value Objects
+│       │   └── infrastructure/   # MongoDB, настройки, контейнер, Sentry
 │       └── tests/
-├── deploy/clickhouse/            # конфиг доступа к ClickHouse
-├── tests/                        # сквозные проверк
-├── docker-compose.yml            # api + etl + Kafka + ClickHouse
+├── deploy/
+│   ├── clickhouse/               # конфиг доступа к ClickHouse
+│   └── elk/                      # filebeat.yml и logstash pipeline
+├── research/storage/             # сравнение MongoDB и PostgreSQL
+├── loadtests/                    # сценарии Locust
+├── tests/                        # сквозные проверки
+├── docker-compose.yml            # kafka, clickhouse, api, etl, mongo, ugc, ELK
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
 ```
 
-## Требования
-
-### Функциональные (API)
-
-- Приём событий трёх типов:
-  - `click`
-  - `page_view`
-  - `custom`
-- Валидация обязательных полей в зависимости от типа события.
-- Присвоение идентификатора события, если клиент его не передал.
-- Публикация события в Kafka с ключом, равным идентификатору события.
-- Возврат подтверждения приёма с идентификатором события.
-- Health-эндпоинты для проверки живости и готовности сервиса.
-
-### Нефункциональные (API)
-
-- Идемпотентность доставки: продюсер в идемпотентном режиме,
-  `acks=all`, ключ сообщения — `event_id`.
-- Производительность: асинхронный приём (FastAPI + aiokafka), рассчитан на
-  пиковую нагрузку около 5000 событий/с.
-- Отказоустойчивость: проверка доступности Kafka при старте, автоматическое
-  переподключение продюсера.
-- Наблюдаемость: задел под OpenTelemetry (трассировка, `x-request-id`).
-- Качество кода: ruff, mypy, pytest, pre-commit.
-
-### Функциональные (ETL)
-
-- Непрерывное чтение событий из Kafka (consumer group `ugc-etl`).
-- Нормализация события в плоскую запись для хранилища.
-- Запись событий в ClickHouse батчами (по размеру или таймауту).
-- Дедупликация по `event_id` через `ReplacingMergeTree` (чтение с `FINAL`).
-- Фиксация offset только после успешной записи батча.
-- Непригодные сообщения отправляются в DLQ-топик (`events.dlq`).
-
-### Нефункциональные (ETL)
-
-- Доставка at-least-once; дубли устраняются на стороне хранилища.
-- Устойчивость к сбоям: повтор запуска зависимостей и повтор записи батча
-  с backoff, без потери событий.
-- Мониторинг памяти процесса (psutil): периодический лог и предупреждение
-  при превышении порога.
-
-## Оценки нагрузки
-
-| Параметр | Значение |
-| --- | --- |
-| MAU | ~3 000 000 |
-| DAU | ~300 000 |
-| Событий на пользователя в день | ~20 |
-| Средний RPS | ~70 |
-| Пиковый RPS (прайм-тайм) | ~5 000 |
-| Средний размер сообщения | ~500 байт |
-| Пиковая запись в Kafka | ~2.5 МБ/с |
-
-Средний RPS получен как `DAU * событий_в_день / 86 400`. Пиковый RPS —
-с учётом вечернего прайм-тайма (множитель ×20–70 к среднему).
-
 ## Архитектура (C4, уровень 2)
 
 ```mermaid
 flowchart LR
-    client[Клиент / сайт кинотеатра] -->|POST /events| api[API-сервис]
-    api -->|publish, key = event_id| kafka[(Kafka<br/>топик events)]
+    client[Клиент / сайт кинотеатра]
+    client -->|POST /events| api[API-сервис]
+    client -->|лайки / закладки / рецензии| ugc[UGC-сервис]
+    api -->|publish, key = event_id| kafka[(Kafka)]
     kafka -->|consume| etl[ETL-сервис]
     etl -->|вставка батчами| ch[(ClickHouse)]
+    ugc -->|CRUD| mongo[(MongoDB)]
+    api --> logs[JSON-логи]
+    etl --> logs
+    ugc --> logs
+    logs -->|Filebeat| logstash[Logstash] --> es[(Elasticsearch)] --> kibana[Kibana]
+    api --> sentry[Sentry]
+    etl --> sentry
+    ugc --> sentry
 ```
 
-## API
+## Сервис приёма событий (api)
 
 Базовый адрес: `http://localhost:8000`. Документация Swagger: `/docs`.
 
 - `POST /events` — принять событие;
 - `GET /health/live` — процесс запущен;
 - `GET /health/ready` — готовность сервиса.
-
-### Приём события
 
 Запрос `POST /events`:
 
@@ -141,10 +98,6 @@ flowchart LR
 }
 ```
 
-Идентификатор пользователя берётся из JWT-токена (`Authorization: Bearer …`),
-проверяемого по JWKS (`APP_AUTH_JWKS_URL`). Без токена событие записывается от
-анонимного пользователя, невалидный токен возвращает `401`.
-
 Состав `payload` зависит от типа события:
 
 | Тип | Обязательные поля | Опциональные |
@@ -153,17 +106,117 @@ flowchart LR
 | `page_view` | `page_url` | `duration` |
 | `custom` | `event_name` | произвольные поля |
 
-Успешный ответ: `202 Accepted`
+Успешный ответ — `202 Accepted` с идентификатором события. Доменные ошибки —
+`400`, ошибки валидации схемы — `422`.
 
-```json
-{ "event_id": "b53cbf2796624590b2daaf357a2364c6" }
+## Сервис контента (ugc)
+
+Базовый адрес: `http://localhost:8001`. Документация Swagger: `/docs`.
+
+Идентификатор пользователя берётся из JWT-токена (`Authorization: Bearer …`,
+проверка по `APP_AUTH_JWKS_URL`); без токена используется анонимный
+идентификатор, невалидный токен — `401`.
+
+### Лайки
+
+- `PUT /api/v1/likes/{film_id}` — поставить лайк (идемпотентно), `204`;
+- `DELETE /api/v1/likes/{film_id}` — снять лайк, `204`;
+- `GET /api/v1/likes/{film_id}` — `{film_id, count, liked_by_me}`;
+- `GET /api/v1/likes` — список фильмов текущего пользователя.
+
+### Закладки
+
+- `PUT /api/v1/bookmarks/{film_id}` — добавить закладку (идемпотентно), `204`;
+- `DELETE /api/v1/bookmarks/{film_id}` — удалить закладку, `204`;
+- `GET /api/v1/bookmarks/{film_id}` — `{film_id, count, bookmarked_by_me}`;
+- `GET /api/v1/bookmarks` — закладки текущего пользователя.
+
+### Рецензии
+
+- `POST /api/v1/reviews` — создать: `{film_id, rating, text}`, `201`;
+- `GET /api/v1/reviews?film_id=&page=&page_size=` — страница рецензий фильма;
+- `GET /api/v1/reviews/my` — рецензии текущего пользователя;
+- `GET /api/v1/reviews/{review_id}` — рецензия по идентификатору;
+- `PATCH /api/v1/reviews/{review_id}` — изменить (только автор);
+- `DELETE /api/v1/reviews/{review_id}` — удалить (только автор), `204`.
+
+Коды ошибок: `400` — доменная ошибка, `403` — нет доступа к чужой рецензии,
+`404` — рецензия не найдена, `422` — ошибка валидации.
+
+Идемпотентность лайков и закладок обеспечивается уникальным индексом
+`(user_id, film_id)` в MongoDB; чтения обслуживаются индексами
+`(film_id, kind, created_at DESC)` и `(user_id, created_at DESC)`.
+
+## Исследование выбора хранилища
+
+Выбор MongoDB для пользовательского контента обоснован сравнительным
+исследованием с PostgreSQL на датасете 10+ млн записей. Методика и стенд —
+в `research/storage/`, полный прогон:
+
+```bash
+bash research/storage/run.sh
 ```
 
-Коды ошибок:
+Результаты (перцентили задержек, мс) — заполняются после прогона на целевом
+железе; машиночитаемые данные сохраняются в
+`research/storage/results/latest.json`.
 
-- `400` — нарушено доменное правило (неизвестный тип, отсутствует
-  обязательное поле);
-- `422` — ошибка валидации схемы запроса.
+| Операция | MongoDB p95 | PostgreSQL p95 | Комментарий |
+| --- | --- | --- | --- |
+| точечное чтение `(user, film)` | — | — | |
+| подсчёт лайков фильма | — | — | |
+| список рецензий фильма | — | — | |
+| upsert действия | — | — | |
+| удаление действия | — | — | |
+
+Вывод: для чтений с требованием < 200 мс и гибкой схемы рецензий выбрана
+MongoDB; PostgreSQL сопоставим на точечных чтениях, но подробное сравнение —
+в `research/storage/README.md` и `docs/adr/0001-storage-choice.md`.
+
+## Нагрузочное тестирование API
+
+Сценарии Locust в `loadtests/locustfile.py` покрывают чтение и запись лайков,
+закладок и рецензий. Запуск:
+
+```bash
+uv run locust -f loadtests/locustfile.py --host http://localhost:8001
+```
+
+Headless-прогон с отчётом: см. `loadtests/README.md`.
+
+## Наблюдаемость
+
+### Логирование (ELK)
+
+Сервисы пишут структурированные JSON-логи в stdout с полями `ts`, `level`,
+`logger`, `service`, `message` и `request_id` (плюс `method/path/status/
+duration_ms` для HTTP). Каждый запрос получает `x-request-id` (входящий
+заголовок или сгенерированный), который возвращается в ответе и попадает в
+логи. Чувствительные данные (токены) не логируются.
+
+Filebeat собирает логи контейнеров и передаёт в Logstash, который раскладывает
+их в Elasticsearch по индексам `%{service}-%{+YYYY.MM.dd}`. Kibana доступна на
+http://localhost:5601 (индекс-паттерн `ugc-*`).
+
+### Мониторинг ошибок (Sentry)
+
+`sentry-sdk` подключён во все сервисы. При заданном `APP_SENTRY_DSN` и
+`APP_SENTRY_ENABLED=true` события и ошибки уходят в Sentry (облачный DSN или
+собственный инстанс). PII отключён (`send_default_pii=False`), заголовок
+`Authorization` вырезается через `before_send`. При пустом DSN SDK работает
+как no-op.
+
+## CI/CD
+
+`.github/workflows/ci.yml` запускает на push в `main` и pull request:
+
+- `lint` — `ruff check` и `ruff format --check`;
+- `typecheck` — `mypy`;
+- `test` — `pytest` (unit-тесты) через matrix на Python 3.11 и 3.12;
+- `notify` — сообщение о результате в Telegram.
+
+Для Telegram задайте секреты репозитория `TELEGRAM_BOT_TOKEN` и
+`TELEGRAM_CHAT_ID`; при их отсутствии шаг пропускается.
 
 ## Запуск
 
@@ -171,63 +224,45 @@ flowchart LR
 docker compose up --build
 ```
 
-Поднимаются четыре сервиса: `kafka` (KRaft), `clickhouse`, `api` и `etl`.
-API доступен на http://localhost:8000, ClickHouse — на `127.0.0.1:8123`,
-Kafka — на `127.0.0.1:9092`. База данных `ugc` и таблица `events` создаются
-автоматически; доступ к ClickHouse настраивается через
-`deploy/clickhouse/users.d/default-user.xml`.
+Поднимаются Kafka (KRaft), ClickHouse, MongoDB, `api`, `etl`, `ugc` и стек
+ELK. Адреса: API — http://localhost:8000, UGC — http://localhost:8001,
+ClickHouse — `127.0.0.1:8123`, Kafka — `127.0.0.1:9092`, MongoDB —
+`127.0.0.1:27017`, Kibana — http://localhost:5601, Elasticsearch —
+http://localhost:9200.
 
 ## Проверка
 
-Отправка событий:
+Отправка события в `api`:
 
 ```bash
 curl -s -X POST http://localhost:8000/events \
   -H 'Content-Type: application/json' \
   -d '{"user_id":"user-1","event_type":"page_view","payload":{"page_url":"https://example.com/movie","duration":120}}'
+```
 
-curl -s -X POST http://localhost:8000/events \
+Работа с контентом в `ugc`:
+
+```bash
+curl -s -X PUT http://localhost:8001/api/v1/likes/film-1
+curl -s http://localhost:8001/api/v1/likes/film-1
+curl -s -X POST http://localhost:8001/api/v1/reviews \
   -H 'Content-Type: application/json' \
-  -d '{"user_id":"user-2","event_type":"click","payload":{"page_url":"/movie","element_id":"play"}}'
+  -d '{"film_id":"film-1","rating":8,"text":"Отличный фильм"}'
 ```
 
-Чтение сообщений из топика (ключ = `event_id`):
+Сквозные проверки:
 
 ```bash
-docker compose exec kafka \
-  /opt/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic events --from-beginning --property print.key=true
-```
-
-Перенос в ClickHouse (после обработки батча ETL):
-
-```bash
-docker compose exec clickhouse clickhouse-client \
-  --query "SELECT count() FROM ugc.events FINAL"
-
-docker compose exec clickhouse clickhouse-client \
-  --query "SELECT event_id, event_type, user_id FROM ugc.events FINAL ORDER BY event_id"
-```
-
-Полная сквозная проверка `api -> kafka`:
-
-```bash
-sudo bash tests/verify_task4.sh
-```
-
-Полная сквозная проверка `api -> kafka -> etl -> clickhouse` с проверкой
-дедупликации:
-
-```bash
-sudo bash tests/verify_task6.sh
+sudo bash tests/verify_task4.sh      # api -> kafka
+sudo bash tests/verify_task6.sh      # api -> kafka -> etl -> clickhouse
+sudo bash tests/verify_content.sh    # ugc -> mongodb
 ```
 
 Остановка:
 
 ```bash
 docker compose down        # остановить
-docker compose down -v     # остановить и удалить данные ClickHouse
+docker compose down -v     # остановить и удалить данные
 ```
 
 ## Переменные окружения
@@ -267,3 +302,32 @@ docker compose down -v     # остановить и удалить данные
 | `APP_RETRY_BACKOFF_SECONDS` | пауза между повторами | `5.0` |
 | `APP_MONITORING_MEMORY_THRESHOLD_MB` | порог памяти, МБ | `512` |
 | `APP_MONITORING_INTERVAL_SECONDS` | период замера памяти | `10.0` |
+
+### UGC (MongoDB)
+
+| Переменная | Назначение | По умолчанию |
+| --- | --- | --- |
+| `APP_MONGO_URI` | URI MongoDB | `mongodb://localhost:27017` |
+| `APP_MONGO_DATABASE` | база данных | `ugc` |
+| `APP_MONGO_LIKE_COLLECTION` | коллекция лайков | `likes` |
+| `APP_MONGO_BOOKMARK_COLLECTION` | коллекция закладок | `bookmarks` |
+| `APP_MONGO_REVIEW_COLLECTION` | коллекция рецензий | `reviews` |
+| `APP_HOST` | адрес HTTP-сервера | `0.0.0.0` |
+| `APP_PORT` | порт HTTP-сервера | `8001` |
+
+### Аутентификация (api и ugc)
+
+| Переменная | Назначение | По умолчанию |
+| --- | --- | --- |
+| `APP_AUTH_JWKS_URL` | URL JWKS для проверки токенов | — |
+| `APP_AUTH_ISSUER` | издатель токенов | `auth-service` |
+| `APP_AUTH_TIMEOUT_SECONDS` | таймаут запроса JWKS | `5.0` |
+
+### Sentry (все сервисы)
+
+| Переменная | Назначение | По умолчанию |
+| --- | --- | --- |
+| `APP_SENTRY_DSN` | DSN проекта Sentry | — |
+| `APP_SENTRY_ENABLED` | включает отправку в Sentry | `false` |
+| `APP_SENTRY_ENVIRONMENT` | окружение | `development` |
+| `APP_SENTRY_TRACES_SAMPLE_RATE` | доля трассировок | `0.0` |
