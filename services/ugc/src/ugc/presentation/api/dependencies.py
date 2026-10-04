@@ -60,23 +60,45 @@ ReviewServiceDependency = Annotated[
 ]
 
 
-async def get_user_id(
+async def get_required_user_id(
     container: ContainerDependency,
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(_bearer)
     ],
 ) -> UserId:
-    """Определяет пользователя по токену; без токена — анонимный."""
+    """Требует подтверждённого пользователя; без токена — 401."""
     if credentials is None:
-        return UserId.anonymous()
-    try:
-        return await container.infrastructure.token_verifier.verify(
-            credentials.credentials
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Требуется авторизация.",
         )
+    return await _verify_token(container, credentials.credentials)
+
+
+async def get_optional_user_id(
+    container: ContainerDependency,
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(_bearer)
+    ],
+) -> UserId | None:
+    """Возвращает пользователя по токену или None без токена."""
+    if credentials is None:
+        return None
+    return await _verify_token(container, credentials.credentials)
+
+
+async def _verify_token(
+    container: ApplicationDependencyContainer, token: str
+) -> UserId:
+    try:
+        return await container.infrastructure.token_verifier.verify(token)
     except InvalidTokenError as error:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error)
         ) from error
 
 
-UserIdDependency = Annotated[UserId, Depends(get_user_id)]
+RequiredUserIdDependency = Annotated[UserId, Depends(get_required_user_id)]
+OptionalUserIdDependency = Annotated[
+    UserId | None, Depends(get_optional_user_id)
+]

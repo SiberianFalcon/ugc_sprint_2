@@ -48,24 +48,20 @@ echo "############ HEALTH ############"
 echo -n "live:  "; curl -s http://localhost:8001/health/live; echo
 echo -n "ready: "; curl -s http://localhost:8001/health/ready; echo
 
-echo "############ LIKE ############"
-echo -n "put like: "; curl -s -o /dev/null -w '%{http_code}' -X PUT http://localhost:8001/api/v1/likes/film-1; echo
-echo -n "status:  "; curl -s http://localhost:8001/api/v1/likes/film-1; echo
+echo "############ PUBLIC STATUS (без токена) ############"
+echo -n "like status:     "; curl -s http://localhost:8001/api/v1/likes/film-1; echo
+echo -n "bookmark status: "; curl -s http://localhost:8001/api/v1/bookmarks/film-1; echo
 
-echo "############ BOOKMARK ############"
-echo -n "put bookmark: "; curl -s -o /dev/null -w '%{http_code}' -X PUT http://localhost:8001/api/v1/bookmarks/film-1; echo
-echo -n "status:       "; curl -s http://localhost:8001/api/v1/bookmarks/film-1; echo
-
-echo "############ REVIEW ############"
-echo -n "create: "; curl -s -X POST http://localhost:8001/api/v1/reviews \
+echo "############ PROTECTED ENDPOINTS (без токена -> 401) ############"
+echo -n "put like:      "; curl -s -o /dev/null -w '%{http_code}' -X PUT http://localhost:8001/api/v1/likes/film-1; echo
+echo -n "delete like:   "; curl -s -o /dev/null -w '%{http_code}' -X DELETE http://localhost:8001/api/v1/likes/film-1; echo
+echo -n "put bookmark:  "; curl -s -o /dev/null -w '%{http_code}' -X PUT http://localhost:8001/api/v1/bookmarks/film-1; echo
+echo -n "create review: "; curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8001/api/v1/reviews \
   -H 'Content-Type: application/json' \
   -d '{"film_id":"film-1","rating":8,"text":"Отличный фильм"}'; echo
-echo -n "list:   "; curl -s "http://localhost:8001/api/v1/reviews?film_id=film-1"; echo
-echo -n "bad rating http code: "; curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8001/api/v1/reviews \
-  -H 'Content-Type: application/json' -d '{"film_id":"film-1","rating":11,"text":"x"}'; echo
-
-echo "############ MY LIKES ############"
-echo -n "my likes: "; curl -s http://localhost:8001/api/v1/likes; echo
+echo -n "my likes:      "; curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/api/v1/likes; echo
+echo -n "my bookmarks:  "; curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/api/v1/bookmarks; echo
+echo -n "my reviews:    "; curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/api/v1/reviews/my; echo
 
 echo "############ DONE ############"
 echo "Остановить: sudo docker compose down"

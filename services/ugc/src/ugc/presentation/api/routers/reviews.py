@@ -4,8 +4,8 @@ from fastapi import APIRouter, Query, status
 
 from ugc.domain.content.review import Review
 from ugc.presentation.api.dependencies import (
+    RequiredUserIdDependency,
     ReviewServiceDependency,
-    UserIdDependency,
 )
 from ugc.presentation.api.schemas import (
     ReviewCreateRequest,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1/reviews", tags=["reviews"])
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_review(
     body: ReviewCreateRequest,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: ReviewServiceDependency,
 ) -> ReviewResponse:
     """Создаёт рецензию пользователя на фильм."""
@@ -52,7 +52,7 @@ async def list_reviews(
 
 @router.get("/my", response_model=ReviewListResponse)
 async def my_reviews(
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: ReviewServiceDependency,
 ) -> ReviewListResponse:
     """Возвращает рецензии текущего пользователя."""
@@ -78,7 +78,7 @@ async def get_review(
 async def update_review(
     review_id: str,
     body: ReviewUpdateRequest,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: ReviewServiceDependency,
 ) -> ReviewResponse:
     """Изменяет рецензию, если пользователь является её автором."""
@@ -91,7 +91,7 @@ async def update_review(
 @router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_review(
     review_id: str,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: ReviewServiceDependency,
 ) -> None:
     """Удаляет рецензию, если пользователь является её автором."""

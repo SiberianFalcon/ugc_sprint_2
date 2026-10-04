@@ -4,7 +4,8 @@ from fastapi import APIRouter, status
 
 from ugc.presentation.api.dependencies import (
     BookmarkServiceDependency,
-    UserIdDependency,
+    OptionalUserIdDependency,
+    RequiredUserIdDependency,
 )
 from ugc.presentation.api.schemas import (
     BookmarkStatusResponse,
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/api/v1/bookmarks", tags=["bookmarks"])
 @router.put("/{film_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def add_bookmark(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: BookmarkServiceDependency,
 ) -> None:
     """Добавляет фильм в закладки, повторный вызов идемпотентен."""
@@ -28,7 +29,7 @@ async def add_bookmark(
 @router.delete("/{film_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_bookmark(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: BookmarkServiceDependency,
 ) -> None:
     """Удаляет фильм из закладок."""
@@ -38,12 +39,14 @@ async def remove_bookmark(
 @router.get("/{film_id}", response_model=BookmarkStatusResponse)
 async def bookmark_status(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: OptionalUserIdDependency,
     service: BookmarkServiceDependency,
 ) -> BookmarkStatusResponse:
     """Возвращает число закладок фильма и состояние пользователя."""
     count = await service.count(film_id)
-    bookmarked_by_me = await service.is_present(str(user_id), film_id)
+    bookmarked_by_me = user_id is not None and await service.is_present(
+        str(user_id), film_id
+    )
     return BookmarkStatusResponse(
         film_id=film_id, count=count, bookmarked_by_me=bookmarked_by_me
     )
@@ -51,7 +54,7 @@ async def bookmark_status(
 
 @router.get("", response_model=FilmIdListResponse)
 async def my_bookmarks(
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: BookmarkServiceDependency,
 ) -> FilmIdListResponse:
     """Возвращает фильмы из закладок пользователя."""

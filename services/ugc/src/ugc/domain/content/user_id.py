@@ -1,16 +1,10 @@
 """Value Object идентификатора пользователя."""
 
-from __future__ import annotations
-
-from typing import ClassVar
-
 from ugc.domain.content.exceptions import InvalidUserIdError
 
 
 class UserId:
     """Идентификатор пользователя, которому принадлежит контент."""
-
-    ANONYMOUS_VALUE: ClassVar[str] = "anonymous"
 
     def __init__(self, value: str) -> None:
         normalized = value.strip()
@@ -19,11 +13,6 @@ class UserId:
                 "Идентификатор пользователя не может быть пустым."
             )
         self._value = normalized
-
-    @classmethod
-    def anonymous(cls) -> UserId:
-        """Создаёт идентификатор анонимного пользователя."""
-        return cls(cls.ANONYMOUS_VALUE)
 
     @property
     def value(self) -> str:

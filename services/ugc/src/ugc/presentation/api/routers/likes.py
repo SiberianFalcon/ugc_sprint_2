@@ -4,7 +4,8 @@ from fastapi import APIRouter, status
 
 from ugc.presentation.api.dependencies import (
     LikeServiceDependency,
-    UserIdDependency,
+    OptionalUserIdDependency,
+    RequiredUserIdDependency,
 )
 from ugc.presentation.api.schemas import FilmIdListResponse, LikeStatusResponse
 
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/v1/likes", tags=["likes"])
 @router.put("/{film_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def add_like(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: LikeServiceDependency,
 ) -> None:
     """Ставит лайк фильму, повторный вызов идемпотентен."""
@@ -25,7 +26,7 @@ async def add_like(
 @router.delete("/{film_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_like(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: LikeServiceDependency,
 ) -> None:
     """Снимает лайк с фильма."""
@@ -35,12 +36,14 @@ async def remove_like(
 @router.get("/{film_id}", response_model=LikeStatusResponse)
 async def like_status(
     film_id: str,
-    user_id: UserIdDependency,
+    user_id: OptionalUserIdDependency,
     service: LikeServiceDependency,
 ) -> LikeStatusResponse:
     """Возвращает число лайков фильма и состояние пользователя."""
     count = await service.count(film_id)
-    liked_by_me = await service.is_present(str(user_id), film_id)
+    liked_by_me = user_id is not None and await service.is_present(
+        str(user_id), film_id
+    )
     return LikeStatusResponse(
         film_id=film_id, count=count, liked_by_me=liked_by_me
     )
@@ -48,7 +51,7 @@ async def like_status(
 
 @router.get("", response_model=FilmIdListResponse)
 async def my_likes(
-    user_id: UserIdDependency,
+    user_id: RequiredUserIdDependency,
     service: LikeServiceDependency,
 ) -> FilmIdListResponse:
     """Возвращает фильмы, отмеченные пользователем."""

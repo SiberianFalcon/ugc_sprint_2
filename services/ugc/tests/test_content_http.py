@@ -18,7 +18,10 @@ from ugc.infrastructure.mongo.client import MongoConnection
 from ugc.infrastructure.security.token_verifier import JwtTokenVerifier
 from ugc.infrastructure.settings import AppSettings
 from ugc.presentation.api.application import build_application
-from ugc.presentation.api.dependencies import get_user_id
+from ugc.presentation.api.dependencies import (
+    get_optional_user_id,
+    get_required_user_id,
+)
 from ugc.presentation.container import ApplicationDependencyContainer
 
 
@@ -88,7 +91,7 @@ class FakeReviewRepository:
         ]
 
 
-def _build_client() -> TestClient:
+def _build_client(*, authorized: bool = True) -> TestClient:
     settings = AppSettings.load()
     infrastructure = InfrastructureDependencyContainer(
         settings=settings,
@@ -112,7 +115,13 @@ def _build_client() -> TestClient:
         ),
     )
     application = build_application(settings, container)
-    application.dependency_overrides[get_user_id] = lambda: UserId("user-1")
+    if authorized:
+        application.dependency_overrides[get_required_user_id] = lambda: (
+            UserId("user-1")
+        )
+        application.dependency_overrides[get_optional_user_id] = lambda: (
+            UserId("user-1")
+        )
     return TestClient(application)
 
 
@@ -213,3 +222,46 @@ def test_get_missing_review_returns_404() -> None:
     """Чтение отсутствующей рецензии возвращает 404."""
     client = _build_client()
     assert client.get("/api/v1/reviews/missing").status_code == 404
+
+
+def test_mutations_require_authentication() -> None:
+    """Изменение контента без токена отклоняется с 401."""
+    client = _build_client(authorized=False)
+    assert client.put("/api/v1/likes/film-1").status_code == 401
+    assert client.delete("/api/v1/likes/film-1").status_code == 401
+    assert client.put("/api/v1/bookmarks/film-1").status_code == 401
+    assert client.delete("/api/v1/bookmarks/film-1").status_code == 401
+    assert (
+        client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 8, "text": "text"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.patch(
+            "/api/v1/reviews/review-1", json={"rating": 8, "text": "x"}
+        ).status_code
+        == 401
+    )
+    assert client.delete("/api/v1/reviews/review-1").status_code == 401
+
+
+def test_personal_lists_require_authentication() -> None:
+    """Личные списки без токена отклоняются с 401."""
+    client = _build_client(authorized=False)
+    assert client.get("/api/v1/likes").status_code == 401
+    assert client.get("/api/v1/bookmarks").status_code == 401
+    assert client.get("/api/v1/reviews/my").status_code == 401
+
+
+def test_status_endpoints_are_public() -> None:
+    """Статус лайка доступен без токена, флаг пользователя выключен."""
+    client = _build_client(authorized=False)
+    response = client.get("/api/v1/likes/film-1")
+    assert response.status_code == 200
+    assert response.json() == {
+        "film_id": "film-1",
+        "count": 0,
+        "liked_by_me": False,
+    }
