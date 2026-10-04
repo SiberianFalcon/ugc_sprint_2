@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from ugc.application.errors import (
     ReviewAccessDeniedError,
+    ReviewConflictError,
     ReviewNotFoundError,
 )
 from ugc.domain.content.exceptions import ContentError
@@ -17,6 +18,7 @@ def register_exception_handlers(application: FastAPI) -> None:
     application.add_exception_handler(
         ReviewAccessDeniedError, _forbidden_handler
     )
+    application.add_exception_handler(ReviewConflictError, _conflict_handler)
 
 
 async def _domain_error_handler(
@@ -45,5 +47,15 @@ async def _forbidden_handler(
     """Преобразует отсутствие доступа в ответ 403."""
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN,
+        content={"detail": str(error)},
+    )
+
+
+async def _conflict_handler(
+    request: Request, error: Exception
+) -> JSONResponse:
+    """Преобразует конфликт версий в ответ 409."""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
         content={"detail": str(error)},
     )

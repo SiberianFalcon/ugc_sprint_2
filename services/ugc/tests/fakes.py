@@ -80,8 +80,15 @@ class FakeReviewRepository:
     def __init__(self) -> None:
         self.documents: dict[str, dict[str, object]] = {}
 
-    async def save(self, review: Review) -> None:
+    async def create(self, review: Review) -> None:
         self.documents[review.review_id.value] = review_to_document(review)
+
+    async def update(self, review: Review, expected_version: int) -> bool:
+        document = self.documents.get(review.review_id.value)
+        if document is None or document.get("version") != expected_version:
+            return False
+        self.documents[review.review_id.value] = review_to_document(review)
+        return True
 
     async def get(self, review_id: ReviewId) -> Review | None:
         document = self.documents.get(review_id.value)

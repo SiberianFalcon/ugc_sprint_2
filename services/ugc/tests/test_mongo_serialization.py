@@ -56,3 +56,4 @@ def test_review_roundtrip_preserves_fields() -> None:
     assert restored.text == review.text
     assert restored.created_at == review.created_at
     assert restored.updated_at == review.updated_at
+    assert restored.version == review.version

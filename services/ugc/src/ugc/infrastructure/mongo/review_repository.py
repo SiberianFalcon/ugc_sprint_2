@@ -18,13 +18,22 @@ class MongoReviewRepository:
     def __init__(self, collection: AsyncIOMotorCollection) -> None:
         self._collection = collection
 
-    async def save(self, review: Review) -> None:
-        """Сохраняет новую или изменённую рецензию."""
-        await self._collection.replace_one(
-            {"_id": review.review_id.value},
-            review_to_document(review),
-            upsert=True,
+    async def create(self, review: Review) -> None:
+        """Сохраняет новую рецензию."""
+        await self._collection.insert_one(review_to_document(review))
+
+    async def update(self, review: Review, expected_version: int) -> bool:
+        """Обновляет рецензию, если её версия совпадает с ожидаемой."""
+        document = review_to_document(review)
+        document.pop("_id")
+        result = await self._collection.update_one(
+            {
+                "_id": review.review_id.value,
+                "version": expected_version,
+            },
+            {"$set": document},
         )
+        return result.matched_count == 1
 
     async def get(self, review_id: ReviewId) -> Review | None:
         """Возвращает рецензию по идентификатору или None."""

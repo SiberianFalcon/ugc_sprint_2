@@ -40,6 +40,7 @@ def review_to_document(review: Review) -> dict[str, object]:
         "text": review.text.value,
         "created_at": review.created_at.value,
         "updated_at": review.updated_at.value,
+        "version": review.version,
     }
 
 
@@ -53,4 +54,5 @@ def review_from_document(document: dict[str, object]) -> Review:
         text=ReviewText(str(document["text"])),
         created_at=CreatedAt(cast(datetime, document["created_at"])),
         updated_at=CreatedAt(cast(datetime, document["updated_at"])),
+        version=cast(int, document.get("version", 0)),
     )

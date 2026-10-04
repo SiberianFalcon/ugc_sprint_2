@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ugc.application.errors import (
     ReviewAccessDeniedError,
+    ReviewConflictError,
     ReviewNotFoundError,
 )
 from ugc.application.ports.clock import Clock
@@ -92,7 +93,7 @@ class ReviewApplicationService:
             text=ReviewText(text),
             created_at=CreatedAt(self._clock.now()),
         )
-        await self._repository.save(review)
+        await self._repository.create(review)
         return review
 
     async def update(
@@ -108,12 +109,17 @@ class ReviewApplicationService:
             raise ReviewAccessDeniedError(
                 "Изменять рецензию может только её автор."
             )
+        expected_version = review.version
         review.edit(
             Rating(rating),
             ReviewText(text),
             CreatedAt(self._clock.now()),
         )
-        await self._repository.save(review)
+        updated = await self._repository.update(review, expected_version)
+        if not updated:
+            raise ReviewConflictError(
+                "Рецензия изменена другим запросом, повторите попытку."
+            )
         return review
 
     async def delete(self, review_id: str, user_id: str) -> None:

@@ -14,6 +14,7 @@ from ugc.application.content.services import (
 )
 from ugc.application.errors import (
     ReviewAccessDeniedError,
+    ReviewConflictError,
     ReviewNotFoundError,
 )
 from ugc.domain.content.film_id import FilmId
@@ -123,3 +124,17 @@ async def test_review_get_missing_raises() -> None:
     service, _ = _review_service()
     with pytest.raises(ReviewNotFoundError):
         await service.get("missing")
+
+
+async def test_review_update_detects_version_conflict() -> None:
+    """Конфликт версий при обновлении приводит к ошибке."""
+
+    class _ConflictingRepository(FakeReviewRepository):
+        async def update(self, review: object, expected_version: int) -> bool:
+            return False
+
+    repository = _ConflictingRepository()
+    service = ReviewApplicationService(repository, FakeClock())
+    created = await service.create("user-1", "film-1", 5, "Средне")
+    with pytest.raises(ReviewConflictError):
+        await service.update(created.review_id.value, "user-1", 9, "Новое")

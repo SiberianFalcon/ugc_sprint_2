@@ -22,6 +22,7 @@ class Review:
         text: ReviewText,
         created_at: CreatedAt,
         updated_at: CreatedAt,
+        version: int = 0,
     ) -> None:
         self._id = review_id
         self._user_id = user_id
@@ -30,6 +31,7 @@ class Review:
         self._text = text
         self._created_at = created_at
         self._updated_at = updated_at
+        self._version = version
 
     @classmethod
     def create(
@@ -54,10 +56,11 @@ class Review:
     def edit(
         self, rating: Rating, text: ReviewText, updated_at: CreatedAt
     ) -> None:
-        """Изменяет оценку и текст рецензии."""
+        """Изменяет оценку и текст рецензии, увеличивая версию."""
         self._rating = rating
         self._text = text
         self._updated_at = updated_at
+        self._version += 1
 
     def is_authored_by(self, user_id: UserId) -> bool:
         """Сообщает, принадлежит ли рецензия пользователю."""
@@ -97,3 +100,8 @@ class Review:
     def updated_at(self) -> CreatedAt:
         """Возвращает момент последнего изменения рецензии."""
         return self._updated_at
+
+    @property
+    def version(self) -> int:
+        """Возвращает версию записи для оптимистичной блокировки."""
+        return self._version

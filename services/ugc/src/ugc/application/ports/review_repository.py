@@ -11,8 +11,12 @@ from ugc.domain.content.user_id import UserId
 class ReviewRepository(Protocol):
     """Хранит рецензии пользователей."""
 
-    async def save(self, review: Review) -> None:
-        """Сохраняет новую или изменённую рецензию."""
+    async def create(self, review: Review) -> None:
+        """Сохраняет новую рецензию."""
+        ...
+
+    async def update(self, review: Review, expected_version: int) -> bool:
+        """Обновляет рецензию, если её версия совпадает с ожидаемой."""
         ...
 
     async def get(self, review_id: ReviewId) -> Review | None:
