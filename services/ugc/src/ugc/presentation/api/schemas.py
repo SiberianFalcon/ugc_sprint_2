@@ -1,24 +1,38 @@
 """Pydantic-модели запросов и ответов API-слоя."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ugc.domain.content.rating import Rating
+from ugc.domain.content.review_text import ReviewText
 
 
-REVIEW_TEXT_MAX_LENGTH = 5000
+class ReviewWriteRequest(BaseModel):
+    """Общая часть запроса на запись рецензии."""
+
+    rating: int = Field(ge=Rating.MIN_VALUE, le=Rating.MAX_VALUE)
+    text: str
+
+    @field_validator("text")
+    @classmethod
+    def _normalize_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Текст рецензии не может быть пустым.")
+        if len(normalized) > ReviewText.MAX_LENGTH:
+            raise ValueError(
+                f"Текст рецензии длиннее {ReviewText.MAX_LENGTH} символов."
+            )
+        return normalized
 
 
-class ReviewCreateRequest(BaseModel):
+class ReviewCreateRequest(ReviewWriteRequest):
     """Запрос на создание рецензии."""
 
     film_id: str = Field(min_length=1)
-    rating: int = Field(ge=1, le=10)
-    text: str = Field(min_length=1, max_length=REVIEW_TEXT_MAX_LENGTH)
 
 
-class ReviewUpdateRequest(BaseModel):
+class ReviewUpdateRequest(ReviewWriteRequest):
     """Запрос на изменение рецензии."""
-
-    rating: int = Field(ge=1, le=10)
-    text: str = Field(min_length=1, max_length=REVIEW_TEXT_MAX_LENGTH)
 
 
 class ReviewResponse(BaseModel):

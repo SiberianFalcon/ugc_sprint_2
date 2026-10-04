@@ -14,6 +14,7 @@ from ugc.application.content.services import (
     LikeApplicationService,
     ReviewApplicationService,
 )
+from ugc.domain.content.review_text import ReviewText
 from ugc.domain.content.user_id import UserId
 from ugc.infrastructure.clock import SystemClock
 from ugc.infrastructure.container import InfrastructureDependencyContainer
@@ -243,3 +244,58 @@ def test_reviews_reject_invalid_page() -> None:
             "/api/v1/reviews", params={"film_id": "film-1", "page": 0}
         )
     assert response.status_code == 422
+
+
+def test_review_text_limits_match_domain() -> None:
+    """Ограничения текста совпадают в схеме и домене."""
+    limit = ReviewText.MAX_LENGTH
+    with _client() as client:
+        accepted = client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 8, "text": "x" * limit},
+        )
+        padded = client.post(
+            "/api/v1/reviews",
+            json={
+                "film_id": "film-1",
+                "rating": 8,
+                "text": "  " + "y" * limit + "  ",
+            },
+        )
+        rejected = client.post(
+            "/api/v1/reviews",
+            json={
+                "film_id": "film-1",
+                "rating": 8,
+                "text": "x" * (limit + 1),
+            },
+        )
+        blank = client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 8, "text": "   "},
+        )
+    assert accepted.status_code == 201
+    assert padded.status_code == 201
+    assert padded.json()["text"] == "y" * limit
+    assert rejected.status_code == 422
+    assert blank.status_code == 422
+
+
+def test_review_rating_boundaries() -> None:
+    """Границы оценки принимаются, выход за диапазон отклоняется."""
+    with _client() as client:
+        low = client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 1, "text": "a"},
+        )
+        high = client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 10, "text": "b"},
+        )
+        zero = client.post(
+            "/api/v1/reviews",
+            json={"film_id": "film-1", "rating": 0, "text": "c"},
+        )
+    assert low.status_code == 201
+    assert high.status_code == 201
+    assert zero.status_code == 422
