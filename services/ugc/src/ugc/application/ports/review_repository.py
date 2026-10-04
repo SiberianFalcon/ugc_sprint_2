@@ -37,6 +37,12 @@ class ReviewRepository(Protocol):
         """Возвращает число рецензий фильма."""
         ...
 
-    async def list_by_user(self, user_id: UserId) -> list[Review]:
-        """Возвращает рецензии пользователя."""
+    async def list_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[Review]:
+        """Возвращает страницу рецензий пользователя."""
+        ...
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        """Возвращает число рецензий пользователя."""
         ...

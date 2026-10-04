@@ -42,9 +42,17 @@ class UserActionApplicationService:
         """Возвращает число действий по фильму."""
         return await self._repository.count_by_film(FilmId(film_id))
 
-    async def list_film_ids(self, user_id: str) -> list[FilmId]:
-        """Возвращает фильмы, отмеченные пользователем."""
-        return await self._repository.list_film_ids_by_user(UserId(user_id))
+    async def list_film_ids(
+        self, user_id: str, offset: int, limit: int
+    ) -> list[FilmId]:
+        """Возвращает страницу фильмов, отмеченных пользователем."""
+        return await self._repository.list_film_ids_by_user(
+            UserId(user_id), offset, limit
+        )
+
+    async def count_by_user(self, user_id: str) -> int:
+        """Возвращает число действий пользователя."""
+        return await self._repository.count_by_user(UserId(user_id))
 
 
 class LikeApplicationService(UserActionApplicationService):
@@ -147,9 +155,17 @@ class ReviewApplicationService:
         """Возвращает число рецензий фильма."""
         return await self._repository.count_by_film(FilmId(film_id))
 
-    async def list_by_user(self, user_id: str) -> list[Review]:
-        """Возвращает рецензии пользователя."""
-        return await self._repository.list_by_user(UserId(user_id))
+    async def list_by_user(
+        self, user_id: str, offset: int, limit: int
+    ) -> list[Review]:
+        """Возвращает страницу рецензий пользователя."""
+        return await self._repository.list_by_user(
+            UserId(user_id), offset, limit
+        )
+
+    async def count_by_user(self, user_id: str) -> int:
+        """Возвращает число рецензий пользователя."""
+        return await self._repository.count_by_user(UserId(user_id))
 
     async def _get_or_raise(self, review_id: str) -> Review:
         review = await self._repository.get(ReviewId(review_id))

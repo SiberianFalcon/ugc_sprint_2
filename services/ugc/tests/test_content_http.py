@@ -217,3 +217,29 @@ def test_status_endpoints_are_public() -> None:
         "count": 0,
         "liked_by_me": False,
     }
+
+
+def test_my_likes_supports_pagination() -> None:
+    """Личный список лайков отдаёт страницы с общим числом."""
+    with _client() as client:
+        for film in ("film-1", "film-2", "film-3"):
+            client.put(f"/api/v1/likes/{film}")
+        first = client.get("/api/v1/likes", params={"page": 1, "page_size": 2})
+        second = client.get(
+            "/api/v1/likes", params={"page": 2, "page_size": 2}
+        )
+    first_body = first.json()
+    assert first_body["total"] == 3
+    assert len(first_body["items"]) == 2
+    assert first_body["page"] == 1
+    assert first_body["page_size"] == 2
+    assert len(second.json()["items"]) == 1
+
+
+def test_reviews_reject_invalid_page() -> None:
+    """Некорректный номер страницы отклоняется валидацией."""
+    with _client() as client:
+        response = client.get(
+            "/api/v1/reviews", params={"film_id": "film-1", "page": 0}
+        )
+    assert response.status_code == 422

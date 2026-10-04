@@ -52,7 +52,7 @@ class MongoReviewRepository:
         """Возвращает страницу рецензий фильма."""
         cursor = (
             self._collection.find({"film_id": film_id.value})
-            .sort("created_at", -1)
+            .sort([("created_at", -1), ("_id", -1)])
             .skip(offset)
             .limit(limit)
         )
@@ -65,10 +65,21 @@ class MongoReviewRepository:
             {"film_id": film_id.value}
         )
 
-    async def list_by_user(self, user_id: UserId) -> list[Review]:
-        """Возвращает рецензии пользователя."""
-        cursor = self._collection.find({"user_id": user_id.value}).sort(
-            "created_at", -1
+    async def list_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[Review]:
+        """Возвращает страницу рецензий пользователя."""
+        cursor = (
+            self._collection.find({"user_id": user_id.value})
+            .sort([("created_at", -1), ("_id", -1)])
+            .skip(offset)
+            .limit(limit)
         )
-        documents = await cursor.to_list(length=None)
+        documents = await cursor.to_list(length=limit)
         return [review_from_document(document) for document in documents]
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        """Возвращает число рецензий пользователя."""
+        return await self._collection.count_documents(
+            {"user_id": user_id.value}
+        )

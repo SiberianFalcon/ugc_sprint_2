@@ -45,10 +45,21 @@ class MongoUserActionRepository:
             {"film_id": film_id.value}
         )
 
-    async def list_film_ids_by_user(self, user_id: UserId) -> list[FilmId]:
-        """Возвращает фильмы, отмеченные пользователем."""
-        cursor = self._collection.find(
-            {"user_id": user_id.value}, {"film_id": 1}
+    async def list_film_ids_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[FilmId]:
+        """Возвращает страницу фильмов, отмеченных пользователем."""
+        cursor = (
+            self._collection.find({"user_id": user_id.value})
+            .sort([("created_at", -1), ("_id", -1)])
+            .skip(offset)
+            .limit(limit)
         )
-        documents = await cursor.to_list(length=None)
+        documents = await cursor.to_list(length=limit)
         return [FilmId(str(document["film_id"])) for document in documents]
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        """Возвращает число действий пользователя."""
+        return await self._collection.count_documents(
+            {"user_id": user_id.value}
+        )

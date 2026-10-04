@@ -126,20 +126,20 @@ flowchart LR
 - `PUT /api/v1/likes/{film_id}` — поставить лайк (идемпотентно), `204`;
 - `DELETE /api/v1/likes/{film_id}` — снять лайк, `204`;
 - `GET /api/v1/likes/{film_id}` — `{film_id, count, liked_by_me}`;
-- `GET /api/v1/likes` — список фильмов текущего пользователя.
+- `GET /api/v1/likes` — страница фильмов пользователя (`page`, `page_size`).
 
 ### Закладки
 
 - `PUT /api/v1/bookmarks/{film_id}` — добавить закладку (идемпотентно), `204`;
 - `DELETE /api/v1/bookmarks/{film_id}` — удалить закладку, `204`;
 - `GET /api/v1/bookmarks/{film_id}` — `{film_id, count, bookmarked_by_me}`;
-- `GET /api/v1/bookmarks` — закладки текущего пользователя.
+- `GET /api/v1/bookmarks` — страница закладок пользователя (`page`, `page_size`).
 
 ### Рецензии
 
 - `POST /api/v1/reviews` — создать: `{film_id, rating, text}`, `201`;
 - `GET /api/v1/reviews?film_id=&page=&page_size=` — страница рецензий фильма;
-- `GET /api/v1/reviews/my` — рецензии текущего пользователя;
+- `GET /api/v1/reviews/my` — страница рецензий пользователя (`page`, `page_size`);
 - `GET /api/v1/reviews/{review_id}` — рецензия по идентификатору;
 - `PATCH /api/v1/reviews/{review_id}` — изменить (только автор);
 - `DELETE /api/v1/reviews/{review_id}` — удалить (только автор), `204`.

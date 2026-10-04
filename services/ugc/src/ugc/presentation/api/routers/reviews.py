@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, status
 
 from ugc.domain.content.review import Review
 from ugc.presentation.api.dependencies import (
+    PageParamsDependency,
     RequiredUserIdDependency,
     ReviewServiceDependency,
 )
@@ -34,34 +35,38 @@ async def create_review(
 @router.get("", response_model=ReviewListResponse)
 async def list_reviews(
     service: ReviewServiceDependency,
+    page_params: PageParamsDependency,
     film_id: str = Query(min_length=1),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
 ) -> ReviewListResponse:
     """Возвращает страницу рецензий фильма."""
-    offset = (page - 1) * page_size
-    reviews = await service.list_by_film(film_id, offset, page_size)
+    reviews = await service.list_by_film(
+        film_id, page_params.offset, page_params.page_size
+    )
     total = await service.count_by_film(film_id)
     return ReviewListResponse(
         items=[_to_response(review) for review in reviews],
         total=total,
-        page=page,
-        page_size=page_size,
+        page=page_params.page,
+        page_size=page_params.page_size,
     )
 
 
 @router.get("/my", response_model=ReviewListResponse)
 async def my_reviews(
     user_id: RequiredUserIdDependency,
+    page_params: PageParamsDependency,
     service: ReviewServiceDependency,
 ) -> ReviewListResponse:
-    """Возвращает рецензии текущего пользователя."""
-    reviews = await service.list_by_user(str(user_id))
+    """Возвращает страницу рецензий текущего пользователя."""
+    reviews = await service.list_by_user(
+        str(user_id), page_params.offset, page_params.page_size
+    )
+    total = await service.count_by_user(str(user_id))
     return ReviewListResponse(
         items=[_to_response(review) for review in reviews],
-        total=len(reviews),
-        page=1,
-        page_size=len(reviews),
+        total=total,
+        page=page_params.page,
+        page_size=page_params.page_size,
     )
 
 

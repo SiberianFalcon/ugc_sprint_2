@@ -5,6 +5,7 @@ from fastapi import APIRouter, status
 from ugc.presentation.api.dependencies import (
     BookmarkServiceDependency,
     OptionalUserIdDependency,
+    PageParamsDependency,
     RequiredUserIdDependency,
 )
 from ugc.presentation.api.schemas import (
@@ -55,8 +56,17 @@ async def bookmark_status(
 @router.get("", response_model=FilmIdListResponse)
 async def my_bookmarks(
     user_id: RequiredUserIdDependency,
+    page_params: PageParamsDependency,
     service: BookmarkServiceDependency,
 ) -> FilmIdListResponse:
-    """Возвращает фильмы из закладок пользователя."""
-    film_ids = await service.list_film_ids(str(user_id))
-    return FilmIdListResponse(items=[film.value for film in film_ids])
+    """Возвращает страницу фильмов из закладок пользователя."""
+    film_ids = await service.list_film_ids(
+        str(user_id), page_params.offset, page_params.page_size
+    )
+    total = await service.count_by_user(str(user_id))
+    return FilmIdListResponse(
+        items=[film.value for film in film_ids],
+        total=total,
+        page=page_params.page,
+        page_size=page_params.page_size,
+    )

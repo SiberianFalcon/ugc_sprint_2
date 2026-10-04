@@ -1,7 +1,8 @@
 """Общие тестовые двойники репозиториев для сервиса ugc.
 
 Поведение приближено к MongoDB-адаптерам: данные хранятся в виде документов,
-а чтение возвращает независимые объекты, собранные из документа.
+чтение возвращает независимые объекты, а списки упорядочены по времени и
+идентификатору.
 """
 
 from __future__ import annotations
@@ -37,8 +38,15 @@ class FakeClock:
         self._now = self._now + timedelta(seconds=seconds)
 
 
-def _created_at(document: dict[str, object]) -> datetime:
-    return cast(datetime, document["created_at"])
+def _sort_key(document: dict[str, object]) -> tuple[datetime, str]:
+    return (cast(datetime, document["created_at"]), str(document["_id"]))
+
+
+def _page(
+    documents: list[dict[str, object]], offset: int, limit: int
+) -> list[dict[str, object]]:
+    ordered = sorted(documents, key=_sort_key, reverse=True)
+    return ordered[offset : offset + limit]
 
 
 class FakeUserActionRepository:
@@ -64,14 +72,25 @@ class FakeUserActionRepository:
             if document["film_id"] == film_id.value
         )
 
-    async def list_film_ids_by_user(self, user_id: UserId) -> list[FilmId]:
+    async def list_film_ids_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[FilmId]:
         matching = [
             document
             for document in self.documents.values()
             if document["user_id"] == user_id.value
         ]
-        ordered = sorted(matching, key=_created_at, reverse=True)
-        return [FilmId(str(document["film_id"])) for document in ordered]
+        return [
+            FilmId(str(document["film_id"]))
+            for document in _page(matching, offset, limit)
+        ]
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        return sum(
+            1
+            for document in self.documents.values()
+            if document["user_id"] == user_id.value
+        )
 
 
 class FakeReviewRepository:
@@ -107,9 +126,10 @@ class FakeReviewRepository:
             for document in self.documents.values()
             if document["film_id"] == film_id.value
         ]
-        ordered = sorted(matching, key=_created_at, reverse=True)
-        page = ordered[offset : offset + limit]
-        return [review_from_document(document) for document in page]
+        return [
+            review_from_document(document)
+            for document in _page(matching, offset, limit)
+        ]
 
     async def count_by_film(self, film_id: FilmId) -> int:
         return sum(
@@ -118,11 +138,22 @@ class FakeReviewRepository:
             if document["film_id"] == film_id.value
         )
 
-    async def list_by_user(self, user_id: UserId) -> list[Review]:
+    async def list_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[Review]:
         matching = [
             document
             for document in self.documents.values()
             if document["user_id"] == user_id.value
         ]
-        ordered = sorted(matching, key=_created_at, reverse=True)
-        return [review_from_document(document) for document in ordered]
+        return [
+            review_from_document(document)
+            for document in _page(matching, offset, limit)
+        ]
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        return sum(
+            1
+            for document in self.documents.values()
+            if document["user_id"] == user_id.value
+        )

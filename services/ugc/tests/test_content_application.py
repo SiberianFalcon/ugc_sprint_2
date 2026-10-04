@@ -61,7 +61,7 @@ async def test_like_count_and_list() -> None:
     await service.add("user-2", "film-1")
     await service.add("user-1", "film-2")
     assert await service.count("film-1") == 2
-    assert set(await service.list_film_ids("user-1")) == {
+    assert set(await service.list_film_ids("user-1", 0, 20)) == {
         FilmId("film-1"),
         FilmId("film-2"),
     }

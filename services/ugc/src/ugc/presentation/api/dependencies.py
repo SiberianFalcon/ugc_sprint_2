@@ -1,8 +1,9 @@
 """FastAPI-зависимости внедрения сервисов приложения."""
 
+from dataclasses import dataclass
 from typing import Annotated, cast
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ugc.application.content.services import (
@@ -58,6 +59,30 @@ BookmarkServiceDependency = Annotated[
 ReviewServiceDependency = Annotated[
     ReviewApplicationService, Depends(get_review_service)
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class PageParams:
+    """Параметры постраничной выдачи."""
+
+    page: int
+    page_size: int
+
+    @property
+    def offset(self) -> int:
+        """Возвращает смещение для запроса к хранилищу."""
+        return (self.page - 1) * self.page_size
+
+
+def get_page_params(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> PageParams:
+    """Возвращает параметры страницы из запроса."""
+    return PageParams(page=page, page_size=page_size)
+
+
+PageParamsDependency = Annotated[PageParams, Depends(get_page_params)]
 
 
 async def get_required_user_id(

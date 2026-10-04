@@ -26,6 +26,12 @@ class UserActionRepository(Protocol):
         """Возвращает число действий по фильму."""
         ...
 
-    async def list_film_ids_by_user(self, user_id: UserId) -> list[FilmId]:
-        """Возвращает фильмы, отмеченные пользователем."""
+    async def list_film_ids_by_user(
+        self, user_id: UserId, offset: int, limit: int
+    ) -> list[FilmId]:
+        """Возвращает страницу фильмов, отмеченных пользователем."""
+        ...
+
+    async def count_by_user(self, user_id: UserId) -> int:
+        """Возвращает число действий пользователя."""
         ...

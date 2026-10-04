@@ -59,6 +59,9 @@ class BookmarkStatusResponse(BaseModel):
 
 
 class FilmIdListResponse(BaseModel):
-    """Список идентификаторов фильмов."""
+    """Страница списка идентификаторов фильмов."""
 
     items: list[str]
+    total: int
+    page: int
+    page_size: int
