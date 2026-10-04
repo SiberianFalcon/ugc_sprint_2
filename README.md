@@ -262,6 +262,12 @@ sudo bash tests/verify_task6.sh      # api -> kafka -> etl -> clickhouse
 sudo bash tests/verify_content.sh    # ugc -> mongodb
 ```
 
+Контрактные тесты репозиториев против MongoDB (помечены `integration`):
+
+```bash
+UGC_TEST_MONGO_URI=mongodb://localhost:27017 uv run pytest -m integration
+```
+
 Остановка:
 
 ```bash
