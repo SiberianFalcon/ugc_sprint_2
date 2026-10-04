@@ -77,7 +77,7 @@ max-complexity = 10
 force-single-line = false
 lines-after-imports = 2
 combine-as-imports = true
-known-first-party = ["api", "etl", "ugc"]
+known-first-party = ["api", "etl", "ugc", "tests"]
 section-order = [
     "future",
     "standard-library",
@@ -113,7 +113,12 @@ files = [
     "services/etl/tests",
     "services/ugc/tests",
 ]
-mypy_path = ["services/api/src", "services/etl/src", "services/ugc/src"]
+mypy_path = [
+    "services/api/src",
+    "services/etl/src",
+    "services/ugc/src",
+    "services/ugc",
+]
 exclude = [
     "tasks/",
     "scripts/",
@@ -132,7 +137,12 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["services/api/tests", "services/etl/tests", "services/ugc/tests"]
 addopts = "-q --import-mode=importlib"
-pythonpath = ["services/api/src", "services/etl/src", "services/ugc/src"]
+pythonpath = [
+    "services/api/src",
+    "services/etl/src",
+    "services/ugc/src",
+    "services/ugc",
+]
 markers = [
     "integration: тесты, требующие внешних сервисов",
     "load: нагрузочные тесты",

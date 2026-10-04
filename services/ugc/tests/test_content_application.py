@@ -1,9 +1,12 @@
 """Тесты прикладных сервисов пользовательского контента."""
 
-from datetime import UTC, datetime
-
 import pytest
 
+from tests.fakes import (
+    FakeClock,
+    FakeReviewRepository,
+    FakeUserActionRepository,
+)
 from ugc.application.content.services import (
     BookmarkApplicationService,
     LikeApplicationService,
@@ -14,87 +17,6 @@ from ugc.application.errors import (
     ReviewNotFoundError,
 )
 from ugc.domain.content.film_id import FilmId
-from ugc.domain.content.review import Review
-from ugc.domain.content.review_id import ReviewId
-from ugc.domain.content.user_action import UserAction
-from ugc.domain.content.user_id import UserId
-
-
-class FakeClock:
-    """Часы с фиксированным временем."""
-
-    def __init__(self) -> None:
-        self._now = datetime(2026, 1, 1, tzinfo=UTC)
-
-    def now(self) -> datetime:
-        """Возвращает фиксированное время."""
-        return self._now
-
-
-class FakeUserActionRepository:
-    """Хранилище действий в памяти."""
-
-    def __init__(self) -> None:
-        self.actions: dict[tuple[str, str], UserAction] = {}
-
-    async def add(self, action: UserAction) -> None:
-        self.actions[(action.user_id.value, action.film_id.value)] = action
-
-    async def remove(self, user_id: UserId, film_id: FilmId) -> None:
-        self.actions.pop((user_id.value, film_id.value), None)
-
-    async def exists(self, user_id: UserId, film_id: FilmId) -> bool:
-        return (user_id.value, film_id.value) in self.actions
-
-    async def count_by_film(self, film_id: FilmId) -> int:
-        return sum(
-            1 for action in self.actions.values() if action.film_id == film_id
-        )
-
-    async def list_film_ids_by_user(self, user_id: UserId) -> list[FilmId]:
-        return [
-            action.film_id
-            for action in self.actions.values()
-            if action.user_id == user_id
-        ]
-
-
-class FakeReviewRepository:
-    """Хранилище рецензий в памяти."""
-
-    def __init__(self) -> None:
-        self.reviews: dict[str, Review] = {}
-
-    async def save(self, review: Review) -> None:
-        self.reviews[review.review_id.value] = review
-
-    async def get(self, review_id: ReviewId) -> Review | None:
-        return self.reviews.get(review_id.value)
-
-    async def delete(self, review_id: ReviewId) -> None:
-        self.reviews.pop(review_id.value, None)
-
-    async def list_by_film(
-        self, film_id: FilmId, offset: int, limit: int
-    ) -> list[Review]:
-        matching = [
-            review
-            for review in self.reviews.values()
-            if review.film_id == film_id
-        ]
-        return matching[offset : offset + limit]
-
-    async def count_by_film(self, film_id: FilmId) -> int:
-        return sum(
-            1 for review in self.reviews.values() if review.film_id == film_id
-        )
-
-    async def list_by_user(self, user_id: UserId) -> list[Review]:
-        return [
-            review
-            for review in self.reviews.values()
-            if review.user_id == user_id
-        ]
 
 
 def _like_service() -> tuple[LikeApplicationService, FakeUserActionRepository]:
@@ -119,7 +41,7 @@ async def test_like_add_is_idempotent() -> None:
     service, repository = _like_service()
     await service.add("user-1", "film-1")
     await service.add("user-1", "film-1")
-    assert len(repository.actions) == 1
+    assert len(repository.documents) == 1
     assert await service.is_present("user-1", "film-1")
 
 
@@ -148,7 +70,7 @@ async def test_bookmark_add() -> None:
     """Закладка сохраняется и доступна для чтения."""
     service, repository = _bookmark_service()
     await service.add("user-1", "film-1")
-    assert len(repository.actions) == 1
+    assert len(repository.documents) == 1
     assert await service.is_present("user-1", "film-1")
 
 

@@ -5,15 +5,15 @@ from contextlib import contextmanager
 
 from fastapi.testclient import TestClient
 
+from tests.fakes import (
+    FakeReviewRepository,
+    FakeUserActionRepository,
+)
 from ugc.application.content.services import (
     BookmarkApplicationService,
     LikeApplicationService,
     ReviewApplicationService,
 )
-from ugc.domain.content.film_id import FilmId
-from ugc.domain.content.review import Review
-from ugc.domain.content.review_id import ReviewId
-from ugc.domain.content.user_action import UserAction
 from ugc.domain.content.user_id import UserId
 from ugc.infrastructure.clock import SystemClock
 from ugc.infrastructure.container import InfrastructureDependencyContainer
@@ -26,72 +26,6 @@ from ugc.presentation.api.dependencies import (
     get_required_user_id,
 )
 from ugc.presentation.container import ApplicationDependencyContainer
-
-
-class FakeUserActionRepository:
-    """Хранилище действий в памяти."""
-
-    def __init__(self) -> None:
-        self.actions: dict[tuple[str, str], UserAction] = {}
-
-    async def add(self, action: UserAction) -> None:
-        self.actions[(action.user_id.value, action.film_id.value)] = action
-
-    async def remove(self, user_id: UserId, film_id: FilmId) -> None:
-        self.actions.pop((user_id.value, film_id.value), None)
-
-    async def exists(self, user_id: UserId, film_id: FilmId) -> bool:
-        return (user_id.value, film_id.value) in self.actions
-
-    async def count_by_film(self, film_id: FilmId) -> int:
-        return sum(
-            1 for action in self.actions.values() if action.film_id == film_id
-        )
-
-    async def list_film_ids_by_user(self, user_id: UserId) -> list[FilmId]:
-        return [
-            action.film_id
-            for action in self.actions.values()
-            if action.user_id == user_id
-        ]
-
-
-class FakeReviewRepository:
-    """Хранилище рецензий в памяти."""
-
-    def __init__(self) -> None:
-        self.reviews: dict[str, Review] = {}
-
-    async def save(self, review: Review) -> None:
-        self.reviews[review.review_id.value] = review
-
-    async def get(self, review_id: ReviewId) -> Review | None:
-        return self.reviews.get(review_id.value)
-
-    async def delete(self, review_id: ReviewId) -> None:
-        self.reviews.pop(review_id.value, None)
-
-    async def list_by_film(
-        self, film_id: FilmId, offset: int, limit: int
-    ) -> list[Review]:
-        matching = [
-            review
-            for review in self.reviews.values()
-            if review.film_id == film_id
-        ]
-        return matching[offset : offset + limit]
-
-    async def count_by_film(self, film_id: FilmId) -> int:
-        return sum(
-            1 for review in self.reviews.values() if review.film_id == film_id
-        )
-
-    async def list_by_user(self, user_id: UserId) -> list[Review]:
-        return [
-            review
-            for review in self.reviews.values()
-            if review.user_id == user_id
-        ]
 
 
 def _build_container() -> ApplicationDependencyContainer:
