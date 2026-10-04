@@ -89,7 +89,7 @@ async def test_verify_returns_user_id(
     private_key = _private_key()
     _FakeClient.response = _FakeResponse(_jwks(private_key.public_key()))
     monkeypatch.setattr(
-        "ugc.infrastructure.security.token_verifier.httpx.AsyncClient",
+        "ugc.infrastructure.security.jwks_provider.httpx.AsyncClient",
         _FakeClient,
     )
     token = jwt.encode(
@@ -111,7 +111,7 @@ async def test_verify_rejects_garbage_token(
     private_key = _private_key()
     _FakeClient.response = _FakeResponse(_jwks(private_key.public_key()))
     monkeypatch.setattr(
-        "ugc.infrastructure.security.token_verifier.httpx.AsyncClient",
+        "ugc.infrastructure.security.jwks_provider.httpx.AsyncClient",
         _FakeClient,
     )
 

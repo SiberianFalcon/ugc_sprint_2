@@ -1,13 +1,10 @@
 """Проверка JWT-токенов по JWKS."""
 
-from typing import Any
-
-import httpx
 import jwt
-from jwt.algorithms import RSAAlgorithm
 
 from ugc.application.errors import InvalidTokenError
 from ugc.domain.content.user_id import UserId
+from ugc.infrastructure.security.jwks_provider import JwksKeyProvider
 from ugc.infrastructure.settings import AuthSettings
 
 
@@ -16,7 +13,7 @@ class JwtTokenVerifier:
 
     def __init__(self, settings: AuthSettings) -> None:
         self._settings = settings
-        self._keys: dict[str, Any] = {}
+        self._key_provider = JwksKeyProvider(settings)
 
     async def verify(self, token: str) -> UserId:
         """Проверяет токен и возвращает идентификатор пользователя."""
@@ -29,7 +26,9 @@ class JwtTokenVerifier:
         kid = header.get("kid")
         if not isinstance(kid, str):
             raise InvalidTokenError("Токен не содержит идентификатор ключа.")
-        key = await self._key_for(kid)
+        key = await self._key_provider.get_key(kid)
+        if key is None:
+            raise InvalidTokenError("Ключ подписи токена не найден.")
         try:
             payload = jwt.decode(
                 token,
@@ -45,23 +44,3 @@ class JwtTokenVerifier:
                 "Токен не содержит идентификатор пользователя."
             )
         return UserId(subject)
-
-    async def _key_for(self, kid: str) -> Any:
-        if kid not in self._keys:
-            await self._fetch_keys()
-        if kid not in self._keys:
-            raise InvalidTokenError("Ключ подписи токена не найден.")
-        return self._keys[kid]
-
-    async def _fetch_keys(self) -> None:
-        async with httpx.AsyncClient(
-            timeout=self._settings.timeout_seconds
-        ) as client:
-            response = await client.get(self._settings.jwks_url)
-            response.raise_for_status()
-            jwks = response.json()
-        self._keys = {
-            jwk["kid"]: RSAAlgorithm.from_jwk(jwk)
-            for jwk in jwks.get("keys", [])
-            if "kid" in jwk
-        }

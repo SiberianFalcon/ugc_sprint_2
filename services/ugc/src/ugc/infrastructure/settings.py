@@ -63,12 +63,18 @@ class AuthSettings(BaseSettings):
     jwks_url: str = ""
     issuer: str = "auth-service"
     timeout_seconds: float = 5.0
+    jwks_cache_ttl_seconds: float = 300.0
+    jwks_refresh_min_seconds: float = 30.0
 
-    @field_validator("timeout_seconds")
+    @field_validator(
+        "timeout_seconds",
+        "jwks_cache_ttl_seconds",
+        "jwks_refresh_min_seconds",
+    )
     @classmethod
-    def _validate_timeout(cls, value: float) -> float:
+    def _validate_positive(cls, value: float) -> float:
         if value <= 0:
-            raise ValueError("timeout_seconds должен быть положительным")
+            raise ValueError("значение должно быть положительным")
         return value
 
 
