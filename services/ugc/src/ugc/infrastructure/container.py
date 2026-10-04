@@ -37,19 +37,23 @@ class InfrastructureDependencyContainer:
     ) -> InfrastructureDependencyContainer:
         """Собирает контейнер инфраструктурных зависимостей."""
         connection = MongoConnection(settings.mongo)
-        await connection.start()
-        return cls(
-            settings=settings,
-            clock=SystemClock(),
-            connection=connection,
-            like_repository=MongoUserActionRepository(
-                connection.collection(settings.mongo.like_collection)
-            ),
-            bookmark_repository=MongoUserActionRepository(
-                connection.collection(settings.mongo.bookmark_collection)
-            ),
-            review_repository=MongoReviewRepository(
-                connection.collection(settings.mongo.review_collection)
-            ),
-            token_verifier=JwtTokenVerifier(settings.auth),
-        )
+        try:
+            await connection.start()
+            return cls(
+                settings=settings,
+                clock=SystemClock(),
+                connection=connection,
+                like_repository=MongoUserActionRepository(
+                    connection.collection(settings.mongo.like_collection)
+                ),
+                bookmark_repository=MongoUserActionRepository(
+                    connection.collection(settings.mongo.bookmark_collection)
+                ),
+                review_repository=MongoReviewRepository(
+                    connection.collection(settings.mongo.review_collection)
+                ),
+                token_verifier=JwtTokenVerifier(settings.auth),
+            )
+        except Exception:
+            await connection.stop()
+            raise

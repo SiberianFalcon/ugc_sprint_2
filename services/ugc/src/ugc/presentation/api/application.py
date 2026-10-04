@@ -1,6 +1,6 @@
 """Фабрика FastAPI-приложения."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,14 +12,26 @@ from ugc.presentation.api.routers import bookmarks, health, likes, reviews
 from ugc.presentation.container import ApplicationDependencyContainer
 
 
+ContainerFactory = Callable[[], Awaitable[ApplicationDependencyContainer]]
+
+
 def build_application(
     settings: AppSettings,
-    container: ApplicationDependencyContainer,
+    container_factory: ContainerFactory,
 ) -> FastAPI:
     """Собирает FastAPI-приложение сервиса."""
-    application = FastAPI(title="UGC Content API", lifespan=_lifespan)
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        container = await container_factory()
+        application.state.container = container
+        try:
+            yield
+        finally:
+            await container.infrastructure.connection.stop()
+
+    application = FastAPI(title="UGC Content API", lifespan=lifespan)
     application.state.settings = settings
-    application.state.container = container
     application.middleware("http")(request_id_middleware)
     register_exception_handlers(application)
     application.include_router(health.router)
@@ -27,12 +39,3 @@ def build_application(
     application.include_router(bookmarks.router)
     application.include_router(reviews.router)
     return application
-
-
-@asynccontextmanager
-async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
-    container: ApplicationDependencyContainer = application.state.container
-    try:
-        yield
-    finally:
-        await container.infrastructure.connection.stop()
